@@ -4,15 +4,23 @@ const MIN_SPEED_MS = 75;
 const SPEED_STEP_MS = 4;
 const STORAGE_KEY = "snake-high-score";
 
+const MODE_SINGLE = "single";
+const MODE_TWO = "two";
+
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
 const scoreEl = document.getElementById("score");
 const highScoreEl = document.getElementById("highScore");
+const controlsHintEl = document.getElementById("controlsHint");
+
 const overlayEl = document.getElementById("overlay");
 const overlayTitleEl = document.getElementById("overlayTitle");
 const overlayTextEl = document.getElementById("overlayText");
 const overlayButtonEl = document.getElementById("overlayButton");
+const modeButtonsEl = document.getElementById("modeButtons");
+const onePlayerBtn = document.getElementById("onePlayerBtn");
+const twoPlayerBtn = document.getElementById("twoPlayerBtn");
 
 const startBtn = document.getElementById("startBtn");
 const pauseBtn = document.getElementById("pauseBtn");
@@ -26,20 +34,39 @@ const directions = {
   right: { x: 1, y: 0 },
 };
 
-let snake;
-let currentDirection;
-let nextDirection;
-let enemySnake;
-let enemyDirection;
-let food;
-let score;
-let highScore;
+let gameMode = null;
+let snakeOne = [];
+let snakeTwo = [];
+let currentDirectionOne = directions.right;
+let nextDirectionOne = directions.right;
+let currentDirectionTwo = directions.left;
+let nextDirectionTwo = directions.left;
+let food = null;
+
+let playerOneScore = 0;
+let playerTwoScore = 0;
+let totalScore = 0;
+let highScore = 0;
+
 let gameLoopId = null;
 let currentSpeed = BASE_SPEED_MS;
 let isRunning = false;
 let isPaused = false;
+let overlayAction = null;
 
-function createInitialSnake() {
+function isTwoPlayerMode() {
+  return gameMode === MODE_TWO;
+}
+
+function cellsEqual(a, b) {
+  return Boolean(a && b) && a.x === b.x && a.y === b.y;
+}
+
+function snakeHasCell(snake, cell) {
+  return snake.some((segment) => cellsEqual(segment, cell));
+}
+
+function createSingleSnake() {
   const center = Math.floor(GRID_SIZE / 2);
   return [
     { x: center, y: center },
@@ -48,68 +75,99 @@ function createInitialSnake() {
   ];
 }
 
-function createEnemySnake() {
-  const startX = GRID_SIZE - 4;
-  const startY = GRID_SIZE - 4;
+function createTwoPlayerSnakeOne() {
+  const y = Math.floor(GRID_SIZE / 2);
   return [
-    { x: startX, y: startY },
-    { x: startX + 1, y: startY },
-    { x: startX + 2, y: startY },
+    { x: 5, y },
+    { x: 4, y },
+    { x: 3, y },
+  ];
+}
+
+function createTwoPlayerSnakeTwo() {
+  const y = Math.floor(GRID_SIZE / 2);
+  return [
+    { x: GRID_SIZE - 6, y },
+    { x: GRID_SIZE - 5, y },
+    { x: GRID_SIZE - 4, y },
   ];
 }
 
 function createFood() {
-  let nextFood;
+  const occupiedCells = [...snakeOne, ...snakeTwo];
+  if (occupiedCells.length >= GRID_SIZE * GRID_SIZE) {
+    return null;
+  }
+
+  let nextFood = null;
   do {
     nextFood = {
       x: Math.floor(Math.random() * GRID_SIZE),
       y: Math.floor(Math.random() * GRID_SIZE),
     };
-  } while (
-    snake.some((segment) => segment.x === nextFood.x && segment.y === nextFood.y) ||
-    (enemySnake && enemySnake.some((segment) => segment.x === nextFood.x && segment.y === nextFood.y))
-  );
+  } while (snakeHasCell(occupiedCells, nextFood));
   return nextFood;
 }
 
 function readHighScore() {
-  const value = Number(localStorage.getItem(STORAGE_KEY));
-  return Number.isFinite(value) && value >= 0 ? value : 0;
+  try {
+    const value = Number(localStorage.getItem(STORAGE_KEY));
+    return Number.isFinite(value) && value >= 0 ? value : 0;
+  } catch {
+    return 0;
+  }
 }
 
 function setHighScore(newHighScore) {
   highScore = newHighScore;
   highScoreEl.textContent = String(highScore);
-  localStorage.setItem(STORAGE_KEY, String(highScore));
-}
-
-function updateScore(value) {
-  score = value;
-  scoreEl.textContent = String(score);
-  if (score > highScore) {
-    setHighScore(score);
+  try {
+    localStorage.setItem(STORAGE_KEY, String(highScore));
+  } catch {
+    // Ignore localStorage write errors in restrictive environments.
   }
 }
 
-function resetState() {
-  snake = createInitialSnake();
-  currentDirection = directions.right;
-  nextDirection = directions.right;
-  enemySnake = createEnemySnake();
-  enemyDirection = directions.left;
-  food = createFood();
-  currentSpeed = BASE_SPEED_MS;
-  updateScore(0);
+function updateTotalScore() {
+  totalScore = playerOneScore + playerTwoScore;
+  scoreEl.textContent = String(totalScore);
+  if (totalScore > highScore) {
+    setHighScore(totalScore);
+  }
 }
 
-function showOverlay(title, text, buttonText) {
+function setControlsHint() {
+  if (gameMode === MODE_SINGLE) {
+    controlsHintEl.textContent = "Стрілки / WASD, пробіл для паузи";
+    return;
+  }
+  if (gameMode === MODE_TWO) {
+    controlsHintEl.textContent = "P1: WASD, P2: стрілки, пробіл для паузи";
+    return;
+  }
+  controlsHintEl.textContent = "Обери режим гри: 1 player або 2 players";
+}
+
+function showOverlay({
+  title,
+  text,
+  buttonText = "",
+  showButton = false,
+  showModeButtons = false,
+  action = null,
+}) {
   overlayTitleEl.textContent = title;
   overlayTextEl.textContent = text;
+
   overlayButtonEl.textContent = buttonText;
+  overlayButtonEl.classList.toggle("hidden", !showButton);
+  modeButtonsEl.classList.toggle("hidden", !showModeButtons);
+  overlayAction = action;
   overlayEl.classList.remove("hidden");
 }
 
 function hideOverlay() {
+  overlayAction = null;
   overlayEl.classList.add("hidden");
 }
 
@@ -125,15 +183,65 @@ function startGameLoop() {
   gameLoopId = setInterval(tick, currentSpeed);
 }
 
-function startGame() {
-  if (isRunning && !isPaused) {
-    return;
+function resetPreviewState() {
+  snakeOne = createSingleSnake();
+  snakeTwo = [];
+  currentDirectionOne = directions.right;
+  nextDirectionOne = directions.right;
+  currentDirectionTwo = directions.left;
+  nextDirectionTwo = directions.left;
+  playerOneScore = 0;
+  playerTwoScore = 0;
+  updateTotalScore();
+  currentSpeed = BASE_SPEED_MS;
+  food = createFood();
+}
+
+function resetStateForMode(mode) {
+  gameMode = mode;
+
+  if (mode === MODE_TWO) {
+    snakeOne = createTwoPlayerSnakeOne();
+    snakeTwo = createTwoPlayerSnakeTwo();
+    currentDirectionOne = directions.right;
+    nextDirectionOne = directions.right;
+    currentDirectionTwo = directions.left;
+    nextDirectionTwo = directions.left;
+  } else {
+    snakeOne = createSingleSnake();
+    snakeTwo = [];
+    currentDirectionOne = directions.right;
+    nextDirectionOne = directions.right;
+    currentDirectionTwo = directions.left;
+    nextDirectionTwo = directions.left;
   }
 
-  if (!isRunning) {
-    resetState();
-  }
+  playerOneScore = 0;
+  playerTwoScore = 0;
+  updateTotalScore();
+  currentSpeed = BASE_SPEED_MS;
+  food = createFood();
+  setControlsHint();
+}
 
+function showModeSelection() {
+  isRunning = false;
+  isPaused = false;
+  pauseBtn.textContent = "Pause";
+  stopGameLoop();
+  gameMode = null;
+  setControlsHint();
+  resetPreviewState();
+  draw();
+  showOverlay({
+    title: "Обери режим",
+    text: "Як хочеш грати: 1 player чи 2 players?",
+    showModeButtons: true,
+  });
+}
+
+function startGameWithMode(mode) {
+  resetStateForMode(mode);
   isRunning = true;
   isPaused = false;
   pauseBtn.textContent = "Pause";
@@ -146,49 +254,113 @@ function pauseGame() {
   if (!isRunning) {
     return;
   }
+
   isPaused = !isPaused;
   pauseBtn.textContent = isPaused ? "Resume" : "Pause";
   if (isPaused) {
     stopGameLoop();
-    showOverlay("Paused", "Натисни Resume або пробіл.", "Resume");
-  } else {
-    hideOverlay();
-    startGameLoop();
+    showOverlay({
+      title: "Paused",
+      text: "Натисни Resume або пробіл, щоб продовжити.",
+      buttonText: "Resume",
+      showButton: true,
+      action: "resume",
+    });
+    return;
   }
+
+  hideOverlay();
+  startGameLoop();
 }
 
 function restartGame() {
+  showModeSelection();
+}
+
+function finishSinglePlayerGame() {
   isRunning = false;
   isPaused = false;
   pauseBtn.textContent = "Pause";
   stopGameLoop();
-  resetState();
-  draw();
-  showOverlay("Ready?", "Натисни Start для нової гри.", "Start game");
+  showOverlay({
+    title: "Game Over",
+    text: `Твій результат: ${totalScore}`,
+    buttonText: "Нова гра",
+    showButton: true,
+    action: "mode-select",
+  });
 }
 
-function gameOver() {
+function finishTwoPlayerGame(playerOneDead, playerTwoDead) {
   isRunning = false;
   isPaused = false;
   pauseBtn.textContent = "Pause";
   stopGameLoop();
-  showOverlay("Game Over", `Твій результат: ${score}`, "Play again");
+
+  let resultText = "";
+  if (playerOneDead && playerTwoDead) {
+    resultText = `Нічия. Обидві змійки зіткнулися. Сумарні очки: ${totalScore}`;
+  } else if (playerOneDead) {
+    resultText = `P1 програв. Переміг P2. Сумарні очки: ${totalScore}`;
+  } else {
+    resultText = `P2 програв. Переміг P1. Сумарні очки: ${totalScore}`;
+  }
+
+  showOverlay({
+    title: "Round Over",
+    text: resultText,
+    buttonText: "Нова гра",
+    showButton: true,
+    action: "mode-select",
+  });
 }
 
-function trySetDirection(direction) {
+function finishFullBoardGame() {
+  isRunning = false;
+  isPaused = false;
+  pauseBtn.textContent = "Pause";
+  stopGameLoop();
+
+  const title = isTwoPlayerMode() ? "Поле заповнене" : "Перемога";
+  const text = isTwoPlayerMode()
+    ? `Нічия. Поле повністю заповнене. Сумарні очки: ${totalScore}`
+    : `Ти заповнив усе поле. Результат: ${totalScore}`;
+
+  showOverlay({
+    title,
+    text,
+    buttonText: "Нова гра",
+    showButton: true,
+    action: "mode-select",
+  });
+}
+
+function trySetDirection(playerId, direction) {
   if (!direction || !isRunning || isPaused) {
     return;
   }
 
-  const isReverse =
-    direction.x === -currentDirection.x && direction.y === -currentDirection.y;
+  if (playerId === 1) {
+    const isReverse =
+      direction.x === -currentDirectionOne.x && direction.y === -currentDirectionOne.y;
+    if (!isReverse) {
+      nextDirectionOne = direction;
+    }
+    return;
+  }
 
+  if (!isTwoPlayerMode()) {
+    return;
+  }
+
+  const isReverse =
+    direction.x === -currentDirectionTwo.x && direction.y === -currentDirectionTwo.y;
   if (!isReverse) {
-    nextDirection = direction;
+    nextDirectionTwo = direction;
   }
 }
 
-function keyToDirection(key) {
+function keyToSingleDirection(key) {
   const normalized = key.toLowerCase();
   if (normalized === "arrowup" || normalized === "w") return directions.up;
   if (normalized === "arrowdown" || normalized === "s") return directions.down;
@@ -197,101 +369,140 @@ function keyToDirection(key) {
   return null;
 }
 
+function keyToPlayerOneDirection(key) {
+  const normalized = key.toLowerCase();
+  if (normalized === "w") return directions.up;
+  if (normalized === "s") return directions.down;
+  if (normalized === "a") return directions.left;
+  if (normalized === "d") return directions.right;
+  return null;
+}
+
+function keyToPlayerTwoDirection(key) {
+  const normalized = key.toLowerCase();
+  if (normalized === "arrowup") return directions.up;
+  if (normalized === "arrowdown") return directions.down;
+  if (normalized === "arrowleft") return directions.left;
+  if (normalized === "arrowright") return directions.right;
+  return null;
+}
+
 function handleInput(event) {
-  const direction = keyToDirection(event.key);
-  if (direction) {
+  const normalized = event.key.toLowerCase();
+  if (event.key === " " || normalized === "p") {
     event.preventDefault();
-    if (!isRunning && !isPaused) {
-      startGame();
-    }
-    trySetDirection(direction);
+    pauseGame();
     return;
   }
 
-  if (event.key === " " || event.key.toLowerCase() === "p") {
-    event.preventDefault();
-    pauseGame();
+  if (!isRunning || isPaused) {
+    return;
   }
-}
 
-function checkCollision(head) {
-  const hitWall =
-    head.x < 0 || head.y < 0 || head.x >= GRID_SIZE || head.y >= GRID_SIZE;
-  const hitSelf = snake.some((segment) => segment.x === head.x && segment.y === head.y);
-  const hitEnemy = enemySnake.some((segment) => segment.x === head.x && segment.y === head.y);
-  return hitWall || hitSelf || hitEnemy;
-}
-
-function moveEnemySnake() {
-  const head = enemySnake[0];
-
-  const possibleDirs = [directions.up, directions.down, directions.left, directions.right];
-
-  const validDirs = possibleDirs.filter((dir) => {
-    if (dir.x === -enemyDirection.x && dir.y === -enemyDirection.y) return false;
-
-    const nextX = head.x + dir.x;
-    const nextY = head.y + dir.y;
-
-    if (nextX < 0 || nextY < 0 || nextX >= GRID_SIZE || nextY >= GRID_SIZE) return false;
-
-    if (enemySnake.some((seg, idx) => idx !== enemySnake.length - 1 && seg.x === nextX && seg.y === nextY)) return false;
-
-    if (snake.some((seg) => seg.x === nextX && seg.y === nextY)) return false;
-
-    return true;
-  });
-
-  let chosenDir = enemyDirection;
-
-  const isCurrentValid = validDirs.some((dir) => dir.x === enemyDirection.x && dir.y === enemyDirection.y);
-
-  if (!isCurrentValid && validDirs.length > 0) {
-    chosenDir = validDirs[Math.floor(Math.random() * validDirs.length)];
-  } else if (isCurrentValid && Math.random() < 0.1 && validDirs.length > 1) {
-    const otherDirs = validDirs.filter((dir) => dir.x !== enemyDirection.x || dir.y !== enemyDirection.y);
-    if (otherDirs.length > 0) {
-      chosenDir = otherDirs[Math.floor(Math.random() * otherDirs.length)];
+  if (isTwoPlayerMode()) {
+    const p1Direction = keyToPlayerOneDirection(event.key);
+    const p2Direction = keyToPlayerTwoDirection(event.key);
+    if (p1Direction || p2Direction) {
+      event.preventDefault();
+      if (p1Direction) {
+        trySetDirection(1, p1Direction);
+      }
+      if (p2Direction) {
+        trySetDirection(2, p2Direction);
+      }
     }
+    return;
   }
 
-  if (validDirs.length > 0) {
-    enemyDirection = chosenDir;
-
-    const nextHead = {
-      x: head.x + enemyDirection.x,
-      y: head.y + enemyDirection.y,
-    };
-
-    enemySnake.unshift(nextHead);
-    enemySnake.pop();
+  const singleDirection = keyToSingleDirection(event.key);
+  if (singleDirection) {
+    event.preventDefault();
+    trySetDirection(1, singleDirection);
   }
+}
+
+function hitsWall(cell) {
+  return cell.x < 0 || cell.y < 0 || cell.x >= GRID_SIZE || cell.y >= GRID_SIZE;
+}
+
+function bodyForCollision(snake, grows) {
+  return grows ? snake : snake.slice(0, -1);
 }
 
 function tick() {
-  currentDirection = nextDirection;
-
-  moveEnemySnake();
-
-  const nextHead = {
-    x: snake[0].x + currentDirection.x,
-    y: snake[0].y + currentDirection.y,
+  currentDirectionOne = nextDirectionOne;
+  const nextHeadOne = {
+    x: snakeOne[0].x + currentDirectionOne.x,
+    y: snakeOne[0].y + currentDirectionOne.y,
   };
 
-  if (checkCollision(nextHead)) {
-    gameOver();
+  let nextHeadTwo = null;
+  if (isTwoPlayerMode()) {
+    currentDirectionTwo = nextDirectionTwo;
+    nextHeadTwo = {
+      x: snakeTwo[0].x + currentDirectionTwo.x,
+      y: snakeTwo[0].y + currentDirectionTwo.y,
+    };
+  }
+
+  const playerOneWillEat = cellsEqual(nextHeadOne, food);
+  const playerTwoWillEat = isTwoPlayerMode() && cellsEqual(nextHeadTwo, food);
+
+  const playerOneBody = bodyForCollision(snakeOne, playerOneWillEat);
+  const playerTwoBody = isTwoPlayerMode() ? bodyForCollision(snakeTwo, playerTwoWillEat) : [];
+
+  let playerOneDead = hitsWall(nextHeadOne) || snakeHasCell(playerOneBody, nextHeadOne);
+  let playerTwoDead = false;
+
+  if (isTwoPlayerMode()) {
+    playerOneDead = playerOneDead || snakeHasCell(playerTwoBody, nextHeadOne);
+    playerTwoDead =
+      hitsWall(nextHeadTwo) ||
+      snakeHasCell(playerTwoBody, nextHeadTwo) ||
+      snakeHasCell(playerOneBody, nextHeadTwo);
+
+    if (cellsEqual(nextHeadOne, nextHeadTwo)) {
+      playerOneDead = true;
+      playerTwoDead = true;
+    }
+  }
+
+  if (isTwoPlayerMode()) {
+    if (playerOneDead || playerTwoDead) {
+      finishTwoPlayerGame(playerOneDead, playerTwoDead);
+      return;
+    }
+  } else if (playerOneDead) {
+    finishSinglePlayerGame();
     return;
   }
 
-  snake.unshift(nextHead);
-
-  if (nextHead.x === food.x && nextHead.y === food.y) {
-    updateScore(score + 1);
-    food = createFood();
-    currentSpeed = Math.max(MIN_SPEED_MS, BASE_SPEED_MS - score * SPEED_STEP_MS);
-    startGameLoop();
+  snakeOne.unshift(nextHeadOne);
+  if (playerOneWillEat) {
+    playerOneScore += 1;
   } else {
-    snake.pop();
+    snakeOne.pop();
+  }
+
+  if (isTwoPlayerMode()) {
+    snakeTwo.unshift(nextHeadTwo);
+    if (playerTwoWillEat) {
+      playerTwoScore += 1;
+    } else {
+      snakeTwo.pop();
+    }
+  }
+
+  if (playerOneWillEat || playerTwoWillEat) {
+    updateTotalScore();
+    food = createFood();
+    if (!food) {
+      draw();
+      finishFullBoardGame();
+      return;
+    }
+    currentSpeed = Math.max(MIN_SPEED_MS, BASE_SPEED_MS - totalScore * SPEED_STEP_MS);
+    startGameLoop();
   }
 
   draw();
@@ -332,42 +543,57 @@ function drawCell(x, y, color, radius = 0.2) {
   ctx.fill();
 }
 
+function drawSnake(snake, headColor, bodyColor) {
+  snake.forEach((segment, index) => {
+    const isHead = index === 0;
+    drawCell(segment.x, segment.y, isHead ? headColor : bodyColor, isHead ? 0.35 : 0.22);
+  });
+}
+
 function draw() {
   ctx.fillStyle = "#061120";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   drawGrid();
 
-  drawCell(food.x, food.y, "#ff7b95", 0.45);
+  if (food) {
+    drawCell(food.x, food.y, "#ff7b95", 0.45);
+  }
 
-  enemySnake.forEach((segment, index) => {
-    const isHead = index === 0;
-    drawCell(segment.x, segment.y, isHead ? "#cd84f1" : "#b33939", isHead ? 0.35 : 0.22);
-  });
+  if (snakeTwo.length > 0) {
+    drawSnake(snakeTwo, "#ffcf73", "#ff8f3d");
+  }
 
-  snake.forEach((segment, index) => {
-    const isHead = index === 0;
-    drawCell(segment.x, segment.y, isHead ? "#8bffbd" : "#52d18a", isHead ? 0.35 : 0.22);
-  });
+  drawSnake(snakeOne, "#8bffbd", "#52d18a");
 }
 
-startBtn.addEventListener("click", startGame);
+startBtn.addEventListener("click", () => {
+  if (!isRunning) {
+    showModeSelection();
+  }
+});
 pauseBtn.addEventListener("click", pauseGame);
 restartBtn.addEventListener("click", restartGame);
+
 overlayButtonEl.addEventListener("click", () => {
-  if (overlayButtonEl.textContent.toLowerCase().includes("resume")) {
+  if (overlayAction === "resume") {
     pauseGame();
-  } else {
-    startGame();
+    return;
+  }
+  if (overlayAction === "mode-select") {
+    showModeSelection();
   }
 });
 
+onePlayerBtn.addEventListener("click", () => startGameWithMode(MODE_SINGLE));
+twoPlayerBtn.addEventListener("click", () => startGameWithMode(MODE_TWO));
+
 touchButtons.forEach((button) => {
   button.addEventListener("click", () => {
-    const direction = directions[button.dataset.dir];
-    if (!isRunning && !isPaused) {
-      startGame();
+    if (!isRunning || isPaused || gameMode !== MODE_SINGLE) {
+      return;
     }
-    trySetDirection(direction);
+    const direction = directions[button.dataset.dir];
+    trySetDirection(1, direction);
   });
 });
 
@@ -375,6 +601,4 @@ window.addEventListener("keydown", handleInput, { passive: false });
 
 highScore = readHighScore();
 highScoreEl.textContent = String(highScore);
-resetState();
-draw();
-showOverlay("Press Start", "З'їдай яблука, уникай стін і свого хвоста.", "Start game");
+showModeSelection();

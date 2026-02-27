@@ -17,7 +17,7 @@
       <header class="hud">
         <div class="title-wrap">
           <h1>Snake</h1>
-          <p>Стрілки / WASD, пробіл для паузи</p>
+          <p id="controlsHint">Обери режим гри: 1 player або 2 players</p>
         </div>
         <div class="score-wrap">
           <div class="score-box">
@@ -34,9 +34,13 @@
       <section class="stage-wrap">
         <canvas id="gameCanvas" width="480" height="480" aria-label="Snake game field"></canvas>
         <div class="overlay" id="overlay">
-          <h2 id="overlayTitle">Press Start</h2>
-          <p id="overlayText">З'їдай яблука, уникай стін і свого хвоста.</p>
-          <button id="overlayButton" type="button">Start game</button>
+          <h2 id="overlayTitle">Обери режим</h2>
+          <p id="overlayText">Як хочеш грати зараз?</p>
+          <div class="mode-buttons" id="modeButtons">
+            <button id="onePlayerBtn" type="button">1 player</button>
+            <button id="twoPlayerBtn" type="button">2 players</button>
+          </div>
+          <button id="overlayButton" type="button" class="hidden">Start game</button>
         </div>
       </section>
 

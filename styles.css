@@ -106,6 +106,10 @@ canvas {
   padding: 20px;
 }
 
+.hidden {
+  display: none !important;
+}
+
 .overlay.hidden {
   display: none;
 }
@@ -118,6 +122,17 @@ canvas {
 .overlay p {
   margin: 0;
   color: var(--muted);
+}
+
+.mode-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.mode-buttons button {
+  min-width: 130px;
 }
 
 button {
