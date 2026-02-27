@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Snake Game</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="hud">
+        <div class="title-wrap">
+          <h1>Snake</h1>
+          <p>Стрілки / WASD, пробіл для паузи</p>
+        </div>
+        <div class="score-wrap">
+          <div class="score-box">
+            <span>Score</span>
+            <strong id="score">0</strong>
+          </div>
+          <div class="score-box">
+            <span>High score</span>
+            <strong id="highScore">0</strong>
+          </div>
+        </div>
+      </header>
+
+      <section class="stage-wrap">
+        <canvas id="gameCanvas" width="480" height="480" aria-label="Snake game field"></canvas>
+        <div class="overlay" id="overlay">
+          <h2 id="overlayTitle">Press Start</h2>
+          <p id="overlayText">З'їдай яблука, уникай стін і свого хвоста.</p>
+          <button id="overlayButton" type="button">Start game</button>
+        </div>
+      </section>
+
+      <section class="actions">
+        <button id="startBtn" type="button">Start</button>
+        <button id="pauseBtn" type="button">Pause</button>
+        <button id="restartBtn" type="button">Restart</button>
+      </section>
+
+      <section class="touch-controls" aria-label="Touch controls">
+        <button data-dir="up" type="button">↑</button>
+        <div class="row">
+          <button data-dir="left" type="button">←</button>
+          <button data-dir="down" type="button">↓</button>
+          <button data-dir="right" type="button">→</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="./script.js"></script>
+  </body>
+</html>
