@@ -360,8 +360,13 @@ function trySetDirection(playerId, direction) {
   }
 }
 
-function keyToSingleDirection(key) {
-  const normalized = key.toLowerCase();
+function keyToSingleDirection(event) {
+  if (event.code === "ArrowUp" || event.code === "KeyW") return directions.up;
+  if (event.code === "ArrowDown" || event.code === "KeyS") return directions.down;
+  if (event.code === "ArrowLeft" || event.code === "KeyA") return directions.left;
+  if (event.code === "ArrowRight" || event.code === "KeyD") return directions.right;
+
+  const normalized = typeof event.key === "string" ? event.key.toLowerCase() : "";
   if (normalized === "arrowup" || normalized === "w") return directions.up;
   if (normalized === "arrowdown" || normalized === "s") return directions.down;
   if (normalized === "arrowleft" || normalized === "a") return directions.left;
@@ -369,8 +374,13 @@ function keyToSingleDirection(key) {
   return null;
 }
 
-function keyToPlayerOneDirection(key) {
-  const normalized = key.toLowerCase();
+function keyToPlayerOneDirection(event) {
+  if (event.code === "KeyW") return directions.up;
+  if (event.code === "KeyS") return directions.down;
+  if (event.code === "KeyA") return directions.left;
+  if (event.code === "KeyD") return directions.right;
+
+  const normalized = typeof event.key === "string" ? event.key.toLowerCase() : "";
   if (normalized === "w") return directions.up;
   if (normalized === "s") return directions.down;
   if (normalized === "a") return directions.left;
@@ -378,8 +388,13 @@ function keyToPlayerOneDirection(key) {
   return null;
 }
 
-function keyToPlayerTwoDirection(key) {
-  const normalized = key.toLowerCase();
+function keyToPlayerTwoDirection(event) {
+  if (event.code === "ArrowUp") return directions.up;
+  if (event.code === "ArrowDown") return directions.down;
+  if (event.code === "ArrowLeft") return directions.left;
+  if (event.code === "ArrowRight") return directions.right;
+
+  const normalized = typeof event.key === "string" ? event.key.toLowerCase() : "";
   if (normalized === "arrowup") return directions.up;
   if (normalized === "arrowdown") return directions.down;
   if (normalized === "arrowleft") return directions.left;
@@ -388,8 +403,8 @@ function keyToPlayerTwoDirection(key) {
 }
 
 function handleInput(event) {
-  const normalized = event.key.toLowerCase();
-  if (event.key === " " || normalized === "p") {
+  const normalized = typeof event.key === "string" ? event.key.toLowerCase() : "";
+  if (event.code === "Space" || event.key === " " || event.code === "KeyP" || normalized === "p") {
     event.preventDefault();
     pauseGame();
     return;
@@ -400,8 +415,8 @@ function handleInput(event) {
   }
 
   if (isTwoPlayerMode()) {
-    const p1Direction = keyToPlayerOneDirection(event.key);
-    const p2Direction = keyToPlayerTwoDirection(event.key);
+    const p1Direction = keyToPlayerOneDirection(event);
+    const p2Direction = keyToPlayerTwoDirection(event);
     if (p1Direction || p2Direction) {
       event.preventDefault();
       if (p1Direction) {
@@ -414,7 +429,7 @@ function handleInput(event) {
     return;
   }
 
-  const singleDirection = keyToSingleDirection(event.key);
+  const singleDirection = keyToSingleDirection(event);
   if (singleDirection) {
     event.preventDefault();
     trySetDirection(1, singleDirection);
